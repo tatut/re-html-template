@@ -1,0 +1,162 @@
+(ns re-html-template.core
+  "Macro that generates Reagent components from HTML files."
+  (:require [clojure.data.xml :as xml]
+            [clojure.java.io :as io]
+            [clojure.string :as str]
+            [clojure.walk :as walk])
+  (:import (org.jsoup Jsoup)
+           (org.jsoup.nodes Element Comment DataNode DocumentType TextNode XmlDeclaration)))
+
+(defn- children [node]
+  (.childNodes node))
+
+(defn- parse [file]
+  (Jsoup/parse (slurp (io/resource file))))
+
+(defn- attributes->map [attributes]
+  (into {}
+        (map (juxt #(keyword (.getKey %)) #(.getValue %)))
+        (.asList attributes)))
+
+(defmulti node->hiccup type)
+
+(defmethod node->hiccup TextNode [text]
+  (.text text))
+
+(defmethod node->hiccup DataNode [data]
+  (.getWholeData data))
+
+(defmethod node->hiccup Comment [_])
+(defmethod node->hiccup DocumentType [_])
+
+(defmethod node->hiccup Element [element]
+  (let [{:keys [id class] :as attrs} (attributes->map (.attributes element))
+        hiccup [(keyword (str (.tagName element)
+                    (when-not (str/blank? id)
+                      (str "#" id))
+                    (when-not (str/blank? class)
+                      (str "." (str/join "." (str/split class #"\s+"))))))]
+        attrs (dissoc attrs :id :class)
+        hiccup (if (empty? attrs)
+                 hiccup
+                 (conj hiccup attrs))]
+    (into hiccup
+          (map node->hiccup)
+          (children element))))
+
+(def transformation-type #{::replace ::append-children ::replace-children
+                           ::set-attributes})
+
+(defmulti transform (fn [transformation element]
+                      (first transformation)))
+
+(defn- normalize
+  "Normalize element so that it is [:tag {...attrs...} ...children...].
+  The input may or may not have attributes, normalize returns an empty
+  map in that case."
+  [elt]
+  (let [tag (first elt)
+        attrs (if (map? (second elt))
+                (second elt))
+        children (drop (if attrs 2 1) elt)]
+    (into [tag (or attrs {})] children)))
+
+(defmethod transform ::replace [[_ & forms] _]
+  `(do ~@forms))
+
+(defmethod transform ::append-children [[_ & forms] element]
+  (let [[tag attrs & children] (normalize element)]
+    `[~tag ~@(when attrs [attrs]) ~@children]))
+
+(defmethod transform ::replace-children [[_ & forms] element]
+  (let [tag (first element)
+        attrs (when (map? (second element))
+                (second element))]
+    `[~tag ~@(when attrs [attrs])
+      ~@forms]))
+
+(defmethod transform ::set-attributes [[_ & forms] element]
+  (let [[tag attrs & children] (normalize element)]
+    `[~tag (merge ~attrs
+                  (do ~@forms)) ~@children]))
+
+(defn- walk [path transformations-map element]
+  (if (vector? element)
+    (let [tag (first element)
+          path (conj path tag)]
+      (if-let [transformation (or (transformations-map path)
+                                  (transformations-map tag))]
+        ;; Transformation found at this path, run it
+        (do
+          (println "transformation: " transformation)
+          (assert (and (map? transformation)
+                       (every? transformation-type (keys transformation)))
+                  (str "Transformation must be a map from transformation type to forms. Got: " (pr-str transformation)))
+          (reduce (fn [element xf]
+                    (transform xf element))
+                  element transformation))
+
+        ;; No transformation, recurse into children
+        (let [tag (first element)
+              attrs (when (map? (second element))
+                      (second element))
+              children (drop (if attrs 2 1) element)
+              element-out [tag]
+              element-out (if attrs
+                            (conj element-out attrs)
+                            element-out)]
+          (into element-out
+                (map (partial walk path transformations-map))
+                children))))
+    element))
+
+(defmacro define-html-template
+  "Define HTML template component with the given name and arguments.
+  Expands to a function with the specified name and arguments that returns
+  the HTML as hiccup.
+  
+  Options map supports to following keys:
+  :file        a file (in the classpath) to load HTML from
+  :selector    a CSS selector string to take as the root element of the component
+
+  Selectors and transformations are an alternating list of selectors and transformation
+  maps.
+  Each selector is either a keyword (matching an element with a class and id, like: :div.main-content
+  A transformation is a map of supported transformation types to forms. The forms are spliced to the
+  function body and may refer to the arguments.
+
+  Supported transformation types are: (in ns re-html-template.core)
+  ::replace            Replace the whole element with the form.
+  ::append-children    Append children to the end of the element
+  ::replace-children   Replace all children
+  ::set-attributes     Set attributes generated by for (must yield an attribute map)
+  
+  "
+  [name args {:keys [file selector] :as options} & selectors-and-transformations]
+  (assert (symbol? name) "Name must be a symbol naming the function")
+  (assert (and (vector? args)
+               (every? symbol? args))
+          "Args must be a (possibly empty) vector of symbols naming the function arguments")
+  (let [doc (parse file)
+        element-node (if selector
+                       (.selectFirst doc selector)
+                       (.root doc))]
+    (assert element-node "Can't find component element, check CSS selector.")
+    `(defn ~name [~@args]
+       ~(walk []
+              (into {} (map (juxt first second)) (partition 2 selectors-and-transformations))
+              (node->hiccup element-node)))))
+
+
+#_(define-html-template base-template [body-content]
+    {:file "test.html" :selector "html"}
+    :body {::replace-children body-content})
+
+
+#_(define-html-template foo [app]
+    {:file "test.html" :selector "body"}
+    :div.main-actors-info {::append-children
+                           (if (:foo? app)
+                             "THIS IS FOO"
+                             "THIS IS NOT FOO")
+                           ::set-attributes {:title (:title app)}})
