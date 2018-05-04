@@ -59,7 +59,10 @@ You will get (roughly) the following function:
                  {:href "http://example.com"}
                  (do {:href (:url link)}))
              (:label link)]]))
-        (:links app))]])
+        links)]])
 ```
 
 You can call the function as normal Reagent UI like `[links-page some-links-list]`.
+
+You can also use it on the backend to create hiccup markup. The library has no runtime dependencies
+the code you use in transformations may still depend on the environment.
