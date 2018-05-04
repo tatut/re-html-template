@@ -94,7 +94,8 @@ Repeating an element is often necessary to make a list of rows in a table or lin
 The `:for` transformation repeats the element as many times as there are elements in the given
 items. If no `:key` form is specified, the elements will have metadata key based on the index.
 
-For keys:
+Keys supported by `:for` transformation:
+
 | Key | Description |
 | --- | --- |
 | :items | Code that yields the sequence of items (usually getting something from parameters) |
