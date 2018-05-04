@@ -1,64 +1,26 @@
 (ns re-html-template.core
   "Macro that generates Reagent components from HTML files."
-  (:require [clojure.data.xml :as xml]
-            [clojure.java.io :as io]
-            [clojure.string :as str]
-            [clojure.walk :as walk])
-  (:import (org.jsoup Jsoup)
-           (org.jsoup.nodes Element Comment DataNode DocumentType TextNode XmlDeclaration)))
+  (:require [clojure.string :as str]
+            [re-html-template.parse :refer [parse node->hiccup]]
+            [clojure.spec.alpha :as s]
+            [re-html-template.spec :as spec]))
 
-(defn- children [node]
-  (.childNodes node))
 
-(defn- parse [file]
-  (Jsoup/parse (slurp (io/resource file))))
+(def transformation-type
+  #{:replace
 
-(defn- attributes->map [attributes]
-  (into {}
-        (map (juxt #(keyword (.getKey %)) #(.getValue %)))
-        (.asList attributes)))
+    ;; Remove element
+    :when :omit
 
-(defmulti node->hiccup type)
+    ;; Loop
+    :for
 
-(defmethod node->hiccup TextNode [text]
-  (.text text))
+    ;; Manipulate children
+    :prepend-children :append-children :replace-children
+    :set-attributes
 
-(defmethod node->hiccup DataNode [data]
-  (.getWholeData data))
-
-(defmethod node->hiccup Comment [_])
-(defmethod node->hiccup DocumentType [_])
-
-(defmethod node->hiccup Element [element]
-  (let [{:keys [id class] :as attrs} (attributes->map (.attributes element))
-        hiccup [(keyword (str (.tagName element)
-                    (when-not (str/blank? id)
-                      (str "#" id))
-                    (when-not (str/blank? class)
-                      (str "." (str/join "." (str/split class #"\s+"))))))]
-        attrs (dissoc attrs :id :class)
-        hiccup (if (empty? attrs)
-                 hiccup
-                 (conj hiccup attrs))]
-    (into hiccup
-          (map node->hiccup)
-          (children element))))
-
-(def transformation-type #{:replace
-
-                           ;; Remove element
-                           :when :omit
-
-                           ;; Loop
-                           :for
-
-                           ;; Manipulate children
-                           :prepend-children :append-children :replace-children
-                           :set-attributes
-
-                           ;; Translate text
-                           :translate
-                           })
+    ;; Translate text
+    :translate})
 
 (defmulti transform (fn [transformation element]
                       (first transformation)))
@@ -90,10 +52,7 @@
       (map-indexed
        (fn [~idx-sym ~item-sym]
          ^{:key ~(or key idx-sym)}
-         ~(let [[tag attrs & children] (normalize element)]
-            (into [tag attrs]
-                  (map #(walk [] (map vec (partition 2 transforms)) %))
-                  children)))
+         ~element)
        ~items))))
 
 (defmethod transform :replace [[_ & forms] _]
@@ -189,13 +148,33 @@
 
 (def ordered-transformation-types (sort-by transformation-order transformation-type))
 
-;; TODO: always do children transformations in rule
 (defn- apply-transformations [transformations element]
   (let [type (some #(when (contains? transformations %) %) ordered-transformation-types)]
     (if-not type
       element
       (transform [type (transformations type)]
                  (apply-transformations (dissoc transformations type) element)))))
+
+(defn- conformed-rule
+  "Given a clojure.spec conformed rule, return [rule transforms-map]"
+  [{:keys [rule transforms-map]}]
+  [(second rule)
+   transforms-map])
+
+(defn- transform-element [{child-transforms :transforms :as transformations} element]
+  (let [[tag attrs & children] (normalize element)
+        new-element [tag]
+        new-element (if (empty? attrs)
+                      new-element
+                      (conj new-element attrs))
+        child-transforms (map conformed-rule child-transforms)]
+    (apply-transformations
+     transformations
+     (into new-element
+           (if (seq child-transforms)
+             (map #(walk [] child-transforms %))
+             (map identity))
+           children))))
 
 (defn- walk [path transformations element]
   (if (vector? element)
@@ -206,11 +185,7 @@
                                         xf))
                                     transformations)]
         ;; Transformation found at this path, run it
-        (do
-          (assert (and (map? transformation)
-                       (every? transformation-type (keys transformation)))
-                  (str "Transformation must be a map from transformation type to forms. Got: " (pr-str transformation)))
-          (apply-transformations transformation element))
+        (transform-element transformation element)
 
         ;; No transformation, recurse into children
         (let [tag (first element)
@@ -253,19 +228,22 @@
   :for                Repeat this node for a each element of a given collection
 
   "
-  [name args {:keys [file selector] :as options} & selectors-and-transformations]
-  (assert (symbol? name) "Name must be a symbol naming the function")
-  (assert (and (vector? args)
-               (every? symbol? args))
-          "Args must be a (possibly empty) vector of symbols naming the function arguments")
-  (let [doc (parse file)
+  [& args]
+
+  (let [{:keys [name args options transforms] :as conformed}
+        (s/conform ::spec/define-html-template args)
+        _ (when (= ::s/invalid conformed)
+            (throw (ex-info (s/explain-str ::spec/define-html-template args)
+                            (s/explain-data ::spec/define-html-template conformed))))
+        {:keys [file selector]} options
+        doc (parse file)
         element-node (if selector
                        (.selectFirst doc selector)
                        (.root doc))]
     (assert element-node "Can't find component element, check CSS selector.")
     `(defn ~name [~@args]
        ~(walk []
-              (map vec (partition 2 selectors-and-transformations))
+              (map conformed-rule transforms)
               (node->hiccup element-node)))))
 
 

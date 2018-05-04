@@ -3,4 +3,5 @@
 
                  [org.jsoup/jsoup "1.11.3"]
                  [org.clojure/data.xml "0.0.8"]]
-  :source-paths ["src"])
+  :source-paths ["src"]
+  :test-paths ["test"])
