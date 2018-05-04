@@ -87,6 +87,7 @@ The supported transformations are  described here.
 | `:append-children` | Add children after the other children |
 | `:replace-children` | Replace children with the value (user code) |
 | `:set-attributes` | Merge attributes from user code |
+| `:transforms` | Nested transformations to run for the child elements of the matched element |
 
 ### Looping with `:for`
 
