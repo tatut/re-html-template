@@ -65,7 +65,7 @@ You will get (roughly) the following function:
 You can call the function as normal Reagent UI like `[links-page some-links-list]`.
 
 You can also use it on the backend to create hiccup markup. The library has no runtime dependencies
-the code you use in transformations may still depend on the environment.
+but the code you use in transformations may still depend on the environment.
 
 ## Transformations
 
