@@ -37,11 +37,11 @@ And you define it as such:
 ```clojure
 (define-html-template links-page [links]
   {:file "template.html" :selector "div.myapp"}
-  [:ul.links li] {:for {:items links
-                        :item link}
-                        :transforms
-                        [:a {:replace-children (:label link)
-                             :set-attributes {:href (:url link)}}]})
+  [:ul.links :li] {:for {:items links
+                         :item link}
+                         :transforms
+                         [:a {:replace-children (:label link)
+                              :set-attributes {:href (:url link)}}]})
 ```
 
 You will get (roughly) the following function:
