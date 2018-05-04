@@ -38,10 +38,10 @@ And you define it as such:
 (define-html-template links-page [links]
   {:file "template.html" :selector "div.myapp"}
   [:ul.links :li] {:for {:items links
-                         :item link}
-                         :transforms
-                         [:a {:replace-children (:label link)
-                              :set-attributes {:href (:url link)}}]})
+                         :item link}}
+
+  :a {:replace-children (:label link)
+      :set-attributes {:href (:url link)}}]})
 ```
 
 You will get (roughly) the following function:
@@ -73,6 +73,10 @@ Transformations bring user code to selected sections of the generated code.
 The rule part is either a keyword or a vector (keyword path) that matches the
 current document structure.
 
+Transformations are always tried in order. The first rule that matches the current element
+is used and only one transformation will be done for a single element. Make sure your
+rules are in priority order or suitably unambiguous.
+
 The transformation is a map where the keys are supported transformations.
 The supported transformations are  described here.
 
@@ -87,7 +91,6 @@ The supported transformations are  described here.
 | `:append-children` | Add children after the other children |
 | `:replace-children` | Replace children with the value (user code) |
 | `:set-attributes` | Merge attributes from user code |
-| `:transforms` | Nested transformations to run for the child elements of the matched element |
 
 ### Looping with `:for`
 

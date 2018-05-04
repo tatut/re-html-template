@@ -3,7 +3,8 @@
   (:require [clojure.string :as str]
             [re-html-template.parse :refer [parse node->hiccup]]
             [clojure.spec.alpha :as s]
-            [re-html-template.spec :as spec]))
+            [re-html-template.spec :as spec]
+            [clojure.walk :as walk]))
 
 
 (def transformation-type
@@ -61,22 +62,37 @@
 
 (def handlebar-pattern #"\{\{[^}]+\}\}")
 
-(defn- translate [translation-expander-fn text-to-translate]
-  (let [string-parts (str/split text-to-translate handlebar-pattern)
-        translated-parts (re-seq handlebar-pattern text-to-translate)]
-    `(str ~@(interleave string-parts
-                        (map translation-expander-fn translated-parts)))))
+(defn- translate
+  ([translation-expander-fn text-to-translate]
+   (translate translation-expander-fn text-to-translate []))
+  ([translation-expander-fn text-to-translate acc]
+   (let [idx (str/index-of text-to-translate "{{")]
+     (if (nil? idx)
+       ;; Nothing more to translate
+       (if (seq acc)
+         `(str ~@acc ~text-to-translate)
+         ~text-to-translate)
+
+       (let [end-idx (str/index-of text-to-translate "}}" (+ 2 idx))
+             _ (assert end-idx (str "Closing translation braces not found, starting at " idx " in string: " text-to-translate))
+             key (subs text-to-translate (+ idx 2) end-idx)
+             acc (if (pos? idx)
+                   (conj acc (subs text-to-translate 0 idx))
+                   acc)
+             rest-of-text (subs text-to-translate (+ end-idx 2))]
+         (translate translation-expander-fn rest-of-text
+                    (conj acc (translation-expander-fn key))))))))
 
 (defmethod transform :translate [[_ translation-expander-form] element]
-  (let [translate (eval translation-expander-form)
-        [tag attrs & children] (normalize element)]
-    (assert (fn? translate)
+  (let [tr (eval translation-expander-form)]
+    (assert (fn? tr)
             "Translate requires a compile time form that yields a function.")
-    `[~tag ~@(when attrs [attrs])
-      ~@(for [c children]
-          (if (string? c)
-            (translate c)
-            c))]))
+    (walk/postwalk
+     (fn [form]
+       (if (string? form)
+         (translate tr form)
+         form))
+     element)))
 
 (defmethod transform :prepend-children [[_ & forms] element]
   (let [[tag attrs & children] (normalize element)]
@@ -143,6 +159,7 @@
 (def wrapping-transformation? #{:when :for})
 (defn transformation-order [t]
   (case t
+    :translate 0
     :when 1
     :for 2
     :set-attributes 3
@@ -164,19 +181,16 @@
   [(second rule)
    transforms-map])
 
-(defn- transform-element [{child-transforms :transforms :as transformations} element]
+(defn- transform-element [path all-transformations transformations element]
   (let [[tag attrs & children] (normalize element)
         new-element [tag]
         new-element (if (empty? attrs)
                       new-element
-                      (conj new-element attrs))
-        child-transforms (map conformed-rule child-transforms)]
+                      (conj new-element attrs))]
     (apply-transformations
      transformations
      (into new-element
-           (if (seq child-transforms)
-             (map #(walk [] child-transforms %))
-             (map identity))
+           (map #(walk path all-transformations %))
            children))))
 
 (defn- walk [path transformations element]
@@ -188,7 +202,9 @@
                                         xf))
                                     transformations)]
         ;; Transformation found at this path, run it
-        (transform-element transformation element)
+        (transform-element path
+                           (remove (comp #(= % transformation) second) transformations)
+                           transformation element)
 
         ;; No transformation, recurse into children
         (let [tag (first element)

@@ -3,10 +3,10 @@
             [clojure.test :refer [deftest is testing]]
             [clojure.core.match :refer [match]]))
 
-(defmacro eval-test-fn [app-data & transforms]
+(defmacro eval-test-fn [file app-data & transforms]
   `(do
      (define-html-template test-fn# [~'app]
-       {:file "test.html" :selector "html"}
+       {:file ~file :selector "html"}
        ~@transforms)
      (test-fn# ~app-data)))
 
@@ -15,14 +15,40 @@
 
 (deftest for-transform
   (let [hiccup (eval-test-fn
-                {:links links}
+                "test.html" {:links links}
                 [:ul :li] {:for {:items (:links app)
-                                 :item link}
-                           :transforms
-                           [:a {:replace-children (:label link)
-                                :set-attributes {:href (:url link)}}]})]
+                                 :item link}}
+                [:li :a] {:replace-children (:label link)
+                          :set-attributes {:href (:url link)}})]
     (is (match hiccup
                [:html
                 [:head [:script _ _]]
                 [:body [_ [_ [:ul ([[:li [:a {:href "http://www.google.com"} "Google"]]
                                     [:li [:a {:href "http://webjure.org"} "Webjure"]]] :seq)]]]]] true))))
+
+(deftest translate
+  (let [hiccup (eval-test-fn
+                "translate.html" :good
+                :body {:translate (fn [key]
+                                    (if (= key "daytype")
+                                      (list 'name 'app)
+                                      "World"))}
+
+                :.daytype {:when (not= :awful app)})]
+    (is (match hiccup
+               [:html
+                [:head]
+                [:body " Hello World! " [:div.daytype " It is a good day! "]]] true)))
+
+  (let [hiccup (eval-test-fn
+                "translate.html" :awful
+                :body {:translate (fn [key]
+                                    (if (= key "daytype")
+                                      (list 'name 'app)
+                                      "World"))}
+
+                :.daytype {:when (not= :awful app)})]
+    (is (match hiccup
+               [:html
+                [:head]
+                [:body " Hello World! " _]] true))))
