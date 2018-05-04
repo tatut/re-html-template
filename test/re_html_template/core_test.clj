@@ -1,6 +1,7 @@
 (ns re-html-template.core-test
   (:require [re-html-template.core :refer [define-html-template]]
-            [clojure.test :refer [deftest is testing]]))
+            [clojure.test :refer [deftest is testing]]
+            [clojure.core.match :refer [match]]))
 
 (defmacro eval-test-fn [app-data & transforms]
   `(do
@@ -20,5 +21,8 @@
                            :transforms
                            [:a {:replace-children (:label link)
                                 :set-attributes {:href (:url link)}}]})]
-    (println hiccup)
-    (is hiccup)))
+    (is (match hiccup
+               [:html
+                [:head [:script _ _]]
+                [:body [_ [_ [:ul ([[:li [:a {:href "http://www.google.com"} "Google"]]
+                                    [:li [:a {:href "http://webjure.org"} "Webjure"]]] :seq)]]]]] true))))

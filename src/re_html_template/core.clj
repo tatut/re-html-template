@@ -144,6 +144,8 @@
   (case t
     :when 1
     :for 2
+    :set-attributes 3
+    :replace-children 4
     32))
 
 (def ordered-transformation-types (sort-by transformation-order transformation-type))
