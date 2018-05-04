@@ -51,8 +51,9 @@
     `(doall
       (map-indexed
        (fn [~idx-sym ~item-sym]
-         ^{:key ~(or key idx-sym)}
-         ~element)
+         (with-meta
+           ~element
+           {:key ~(or key idx-sym)}))
        ~items))))
 
 (defmethod transform :replace [[_ & forms] _]
