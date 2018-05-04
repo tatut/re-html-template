@@ -248,20 +248,3 @@
        ~(walk []
               (map conformed-rule transforms)
               (node->hiccup element-node)))))
-
-
-#_(define-html-template base-template [body-content]
-    {:file "test.html" :selector "html"}
-    :body {:replace-children body-content})
-
-
-#_(define-html-template foo [app]
-    {:file "templates/napote.html" :selector "body"}
-  :div.main-actors-info {:append-children
-                           (if (:foo? app)
-                             "THIS IS FOO"
-                             "THIS IS NOT FOO")
-                         :set-attributes {:title (:title app)}}
-  :ul.header-navi {:for {:items ["hep" "jipujei" "foobar"]
-                         :item page
-                         :transforms [[:li :div] {:replace-children page}]}})
