@@ -1,4 +1,4 @@
-(defproject re-html-template "20180502.5-SNAPSHOT"
+(defproject re-html-template "20180504"
   :dependencies [[org.clojure/clojure "1.9.0"]
 
                  [org.jsoup/jsoup "1.11.3"]
