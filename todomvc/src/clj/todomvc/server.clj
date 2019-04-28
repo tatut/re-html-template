@@ -13,8 +13,11 @@
   {:status 200
    :headers {"Content-Type" "text/html"}
    :body (html (view/page {:filter "all"
-                           :todos [{:label "teeppä tämä" :completed? true}
-                                   {:label "tee myös cljs toteutus" :completed? false}]}))})
+                           :todos (into [{:label "teeppä tämä" :completed? true}
+                                         {:label "tee myös cljs toteutus" :completed? false}]
+                                        (for [i (range 10)]
+                                          {:label (str "todo " i)
+                                           :completed? (rand-nth [true false])}))}))})
 
 (defroutes app
   (GET "/" req (main-handler req))
