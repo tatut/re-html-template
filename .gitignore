@@ -1,2 +1,6 @@
 target
 /.nrepl-port
+todomvc/dev-resources/public/js
+.nrepl-port
+*.log
+.cache
