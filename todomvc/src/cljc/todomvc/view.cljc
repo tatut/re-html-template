@@ -4,6 +4,15 @@
             #?(:cljs [todomvc.events :as events]))
   #?(:cljs (:require-macros [re-html-template.core :refer [define-html-template]])))
 
+(defn filtered-todos
+  "Return todos based on selected filter."
+  [app]
+  (filter (case (:filter app)
+            "all" (constantly true)
+            "active" (complement :completed?)
+            "completed" :completed?)
+          (:todos app)))
+
 ;; Extract the template body
 (define-html-template main-view [e! app]
   {:file "todomvc.html" :selector "section.todoapp"}
@@ -19,11 +28,7 @@
 
   ;; Loop through todos
   [:ul.todo-list :li]
-  {:for {:items (filter (case (:filter app)
-                          "all" (constantly true)
-                          "active" (complement :completed?)
-                          "completed" :completed?)
-                        (:todos app))
+  {:for {:items (filtered-todos app)
          :item todo
          :index idx}
    :set-attributes {:class (when (:completed? todo)
@@ -36,6 +41,9 @@
                       ;; Subtle render vs react difference in checkbox value
                       "checked" #?(:clj nil :cljs ""))}
           #?(:cljs {:on-change #(e! (events/->ToggleCompleted idx))}))}
+  [:div.view :button.destroy]
+  {:set-attributes {:on-click #?(:clj nil
+                                 :cljs #(e! (events/->Remove idx)))}}
 
   ;; Set footer item count
   [:footer :span.todo-count]
@@ -55,7 +63,12 @@
                              "")
                     :on-click #?(:clj nil
                                  :cljs #(do (.preventDefault %)
-                                            (e! (events/->SetFilter data-filter))))}})
+                                            (e! (events/->SetFilter data-filter))))}}
+
+  ;; Add clear completed handler
+  [:footer :button.clear-completed]
+  {:set-attributes {:on-click #?(:clj nil
+                                 :cljs #(e! (events/->ClearCompleted)))}})
 
 #?(:clj
    ;; This renders the full HTML file on the backend
