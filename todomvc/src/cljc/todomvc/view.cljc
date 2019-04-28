@@ -13,6 +13,9 @@
             "completed" :completed?)
           (:todos app)))
 
+(defn editing? [app idx]
+  (= idx (get-in app [:edit :idx])))
+
 ;; Extract the template body
 (define-html-template main-view [e! app]
   {:file "todomvc.html" :selector "section.todoapp"}
@@ -31,19 +34,37 @@
   {:for {:items (filtered-todos app)
          :item todo
          :index idx}
-   :set-attributes {:class (when (:completed? todo)
-                             "completed")}}
+   :set-attributes {:class (str (when (:completed? todo)
+                                  "completed")
+                                (when (editing? app idx)
+                                  " editing"))}}
 
-  [:div.view :label] {:replace-children (:label todo)}
+  [:div.view :label] {:replace-children (:label todo)
+                      :set-attributes #?(:clj nil
+                                         :cljs {:on-double-click #(e! (events/->EditTodo idx))})}
+
   [:div.view :input.toggle]
-  {:set-attributes
+  {:when (not (editing? app idx))
+   :set-attributes
    (merge {:checked (if (:completed? todo)
                       ;; Subtle render vs react difference in checkbox value
                       "checked" #?(:clj nil :cljs ""))}
           #?(:cljs {:on-change #(e! (events/->ToggleCompleted idx))}))}
+
   [:div.view :button.destroy]
-  {:set-attributes {:on-click #?(:clj nil
+  {:when (not (editing? app idx))
+   :set-attributes {:on-click #?(:clj nil
                                  :cljs #(e! (events/->Remove idx)))}}
+
+  [:input.edit]
+  {:when (editing? app idx)
+   :set-attributes (merge {:value (get-in app [:edit :text])}
+                          #?(:cljs {:on-change #(e! (events/->UpdateTodo
+                                                     (-> % .-target .-value)))
+                                    :on-key-down #(case (.-keyCode %)
+                                                    13 (e! (events/->SaveTodo))
+                                                    27 (e! (events/->CancelEdit))
+                                                    nil)}))}
 
   ;; Set footer item count
   [:footer :span.todo-count]

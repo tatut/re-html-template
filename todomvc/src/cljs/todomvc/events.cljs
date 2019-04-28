@@ -10,6 +10,12 @@
 
 (defrecord ClearCompleted [])
 
+;; Events to edit
+(defrecord EditTodo [idx])
+(defrecord UpdateTodo [text])
+(defrecord SaveTodo [])
+(defrecord CancelEdit [])
+
 (extend-protocol t/Event
   UpdateNewTodo
   (process-event [{text :text} app]
@@ -39,4 +45,24 @@
 
   ClearCompleted
   (process-event [_ app]
-    (update app :todos #(filterv (complement :completed?) %))))
+    (update app :todos #(filterv (complement :completed?) %)))
+
+
+  EditTodo
+  (process-event [{idx :idx} app]
+    (assoc app :edit {:idx idx
+                      :text (get-in app [:todos idx :label])}))
+
+  UpdateTodo
+  (process-event [{text :text} app]
+    (assoc-in app [:edit :text] text))
+
+  SaveTodo
+  (process-event [_ {edit :edit :as app}]
+    (-> app
+        (assoc-in [:todos (:idx edit) :label] (:text edit))
+        (dissoc :edit)))
+
+  CancelEdit
+  (process-event [_ app]
+    (dissoc app :edit)))
