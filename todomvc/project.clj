@@ -23,4 +23,5 @@
                 :compiler {:optimizations :none
                            :output-to "dev-resources/public/js/todomvc.js"
                            :output-dir "dev-resources/public/js/out"}}]}
+  :main todomvc.server
   )
