@@ -1,0 +1,2 @@
+{:deps {org.jsoup/jsoup {:mvn/version "1.11.3"}
+        org.clojure/data.xml {:mvn/version "0.0.8"}}}
