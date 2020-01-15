@@ -144,10 +144,12 @@
   [rule-tag candidate-tag]
   (let [rule-id (id rule-tag)
         rule-html-tag (html-tag rule-tag)]
-    (or (and rule-id (= rule-id (id candidate-tag)))
-        (and (or (nil? rule-html-tag)
-                 (= rule-html-tag (html-tag candidate-tag)))
-             (every? (classes candidate-tag) (classes rule-tag))))))
+    (and (or (nil? rule-id)
+             (= rule-id (id candidate-tag)))
+         (or (nil? rule-html-tag)
+             (= rule-html-tag (html-tag candidate-tag)))
+         (every? (classes candidate-tag)
+                 (classes rule-tag)))))
 
 (defn- match?
   "Check if the given rule matches the current path"
