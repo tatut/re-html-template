@@ -86,8 +86,8 @@
            {:key ~(or key idx-sym)}))
        ~items))))
 
-(defmethod transform :replace [[_ & forms] _ _ _options]
-  `(do ~@forms))
+(defmethod transform :replace [[_ form] _ _ _options]
+  form)
 
 (def handlebar-pattern #"\{\{[^}]+\}\}")
 
