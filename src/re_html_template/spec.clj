@@ -24,10 +24,10 @@
 (s/def ::selector string?)
 
 (s/def ::options
-  (s/keys :req-un [::file]
-          :req-opt [::selector]))
+  (s/keys :req-un []
+          :opt-un [::file ::selector]))
 
-(s/def ::args (s/and (s/coll-of symbol?) vector?))
+(s/def ::args vector?)
 
 (s/def ::html-template
   (s/cat :args ::args
