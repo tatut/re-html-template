@@ -3,7 +3,7 @@
   (:require [clojure.java.io :as io]
             [clojure.string :as str])
   (:import (org.jsoup Jsoup)
-           (org.jsoup.nodes Element Comment DataNode DocumentType TextNode XmlDeclaration)))
+           (org.jsoup.nodes Element Comment DataNode DocumentType TextNode)))
 
 (defn- children [node]
   (.childNodes node))

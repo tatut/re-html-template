@@ -47,7 +47,7 @@
         w))
     form))
 
-(defmulti transform (fn [transformation element orig-element transform-options]
+(defmulti transform (fn [transformation _element _orig-element _transform-options]
                       (first transformation)))
 
 (defn- normalize
@@ -56,7 +56,7 @@
   map in that case."
   [elt]
   (let [tag (first elt)
-        attrs (if (map? (second elt))
+        attrs (when (map? (second elt))
                 (second elt))
         children (drop (if attrs 2 1) elt)]
     (into [tag (or attrs {})] children)))
@@ -75,7 +75,7 @@
     `(let [~bindings ~attrs]
        ~(hiccup element))))
 
-(defmethod transform :for [[_ {:keys [item items index key transforms]}] element _ _options]
+(defmethod transform :for [[_ {:keys [item items index key]}] element _ _options]
   (let [idx-sym (or index (gensym "index"))
         item-sym (or item (symbol (str *ns* "item")))]
     `(doall
@@ -266,8 +266,7 @@
 
 (defn- walk [options path transformations element]
   (if (vector? element)
-    (let [tag (first element)
-          path (conj path element)]
+    (let [path (conj path element)]
       (if-let [transformation (some (fn [[rule xf]]
                                       (when (match? rule path)
                                         xf))
@@ -346,7 +345,7 @@
                        (.root doc))
         fn-name (gensym "html-template")]
     (assert element-node "Can't find component element, check CSS selector.")
-    (binding [*wrap-hiccup-form* (:wrap-hiccup options)]
+    (binding [*wrap-hiccup-form* wrap-hiccup]
       `(fn ~fn-name [~@args]
          ~(hiccup (walk options []
                         (map conformed-rule transforms)
