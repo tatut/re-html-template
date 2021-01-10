@@ -3,8 +3,12 @@
   (:require [clojure.spec.alpha :as s]))
 
 (s/def ::rule
-  (s/or :kw keyword?
-        :kw-path (s/and (s/coll-of keyword?) vector?)))
+  (s/or :tag-rule keyword?
+        :attrs-rule (s/and map? #(every? keyword? (keys %)))))
+
+(s/def ::rules
+  (s/or :single-rule ::rule
+        :rule-vector (s/and (s/coll-of ::rule) vector?)))
 
 (s/def ::transforms-map
   (s/keys :opt-un [::replace ::when ::omit ::for
@@ -17,7 +21,7 @@
 
 (s/def ::transforms
   (s/*
-   (s/cat :rule ::rule
+   (s/cat :rules ::rules
           :transforms-map ::transforms-map)))
 
 (s/def ::file string?)

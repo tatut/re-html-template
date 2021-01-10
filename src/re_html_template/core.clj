@@ -166,34 +166,60 @@
   [tag]
   (second (re-find #"\#([^.]+)" (name tag))))
 
-(defn- matching-tag?
-  "Check if candidate tag should match the given rule tag.
+(defn- matching-element?
+  "Check if candidate element matches the given rule.
+
+  Rule can either be a keyword like :div or :span.some-class that
+  describes the element's tag and class/id or a map that describes
+  the element's attributes like {:data-test \"foo\"}.
+
   Tags match if the tags have the same id or the same HTML tag and the candidate has
-  the same classes as the rule. The candidate may have extra classes."
-  [rule-tag candidate-tag]
-  (let [rule-id (id rule-tag)
-        rule-html-tag (html-tag rule-tag)]
-    (and (or (nil? rule-id)
-             (= rule-id (id candidate-tag)))
-         (or (nil? rule-html-tag)
-             (= rule-html-tag (html-tag candidate-tag)))
-         (every? (classes candidate-tag)
-                 (classes rule-tag)))))
+  the same classes as the rule. The candidate may have extra classes.
+
+  Attributes match if candidate has the same values for all the attributes
+  defined in the map. The candidate may have extra attributes."
+  [rule candidate-element]
+  (cond
+    ;; Tag rule
+    (keyword? rule)
+    (let [rule-tag rule
+          candidate-tag (first candidate-element)
+          rule-id (id rule-tag)
+          rule-html-tag (html-tag rule-tag)]
+      (and (or (nil? rule-id)
+               (= rule-id (id candidate-tag)))
+           (or (nil? rule-html-tag)
+               (= rule-html-tag (html-tag candidate-tag)))
+           (every? (classes candidate-tag)
+                   (classes rule-tag))))
+
+    ;; Attributes rules
+    (map? rule)
+    (let [candidate-attrs (when (map? (second candidate-element))
+                            (second candidate-element))]
+      (every? (fn [[rule-key rule-value]]
+                (= (get candidate-attrs rule-key) rule-value))
+              rule))
+
+    :else
+    (throw (ex-info "Unsupported matching rule, expected tag keyword or attr map"
+                    {:rule rule
+                     :candidate-element candidate-element}))))
 
 (defn- match?
   "Check if the given rule matches the current path"
   [rule path]
-  (or
-   ;; Rule is a keyword and the last path element matches it
-   (and (keyword? rule)
-        (matching-tag? rule (last path)))
+  (cond
+    ;; Rule is a vector and the tail of the path matches
+    (vector? rule)
+    (and (>= (count path) (count rule))
+         (every? (fn [[r c]]
+                   (matching-element? r c))
+                 (map vector rule (subvec path (- (count path) (count rule))))))
 
-   ;; Rule is a vector and the tail of the path matches
-   (and (vector? rule)
-        (>= (count path) (count rule))
-        (every? (fn [[r c]]
-                  (matching-tag? r c))
-                (map vector rule (subvec path (- (count path) (count rule))))))))
+    ;; Rule is a single rule and the last path element matches it
+    :else
+    (matching-element? rule (last path))))
 
 (def wrapping-transformation? #{:when :for :let-attrs})
 (defn transformation-order [t]
@@ -219,8 +245,10 @@
 
 (defn- conformed-rule
   "Given a clojure.spec conformed rule, return [rule transforms-map]"
-  [{:keys [rule transforms-map]}]
-  [(second rule)
+  [{:keys [rules transforms-map]}]
+  [(case (first rules)
+     :single-rule (second (second rules))
+     :rule-vector (mapv second (second rules)))
    transforms-map])
 
 (defn- transform-element [options path all-transformations transformations element]
@@ -239,7 +267,7 @@
 (defn- walk [options path transformations element]
   (if (vector? element)
     (let [tag (first element)
-          path (conj path tag)]
+          path (conj path element)]
       (if-let [transformation (some (fn [[rule xf]]
                                       (when (match? rule path)
                                         xf))
