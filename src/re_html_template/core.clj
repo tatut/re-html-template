@@ -6,6 +6,9 @@
             [re-html-template.spec :as spec]
             [clojure.walk :as walk]))
 
+(defonce ^{:private true
+           :doc "Global options for all HTML template processing."}
+  global-options (atom {}))
 
 (def transformation-type
   #{:replace
@@ -26,7 +29,25 @@
     ;; Use tag attributes at compile time
     :let-attrs})
 
-(defmulti transform (fn [transformation element orig-element]
+(def ^{:dynamic true :private true} *wrap-hiccup-form* nil)
+
+(defn- hiccup
+  "Wrap hiccup with form bound to *wrap-hiccup-form*.
+  Otherwise returns form as is.
+
+  Replaces % in wrapper with the form.
+  For example if *wrap-hiccup-form* is (my.html/render %)
+  and form is [:div.foo \"bar\"].
+  Returns (my.html/render [:div.foo \"bar\"])"
+  [form]
+  (if-let [wrap *wrap-hiccup-form*]
+    (for [w wrap]
+      (if (= w '%)
+        form
+        w))
+    form))
+
+(defmulti transform (fn [transformation element orig-element transform-options]
                       (first transformation)))
 
 (defn- normalize
@@ -42,30 +63,30 @@
 
 (declare walk)
 
-(defmethod transform :omit [_ _ _]
+(defmethod transform :omit [_ _ _ _]
   nil)
 
-(defmethod transform :when [[_ & forms] element _]
+(defmethod transform :when [[_ & forms] element _ _]
   `(when (do ~@forms)
-     ~element))
+     ~(hiccup element)))
 
-(defmethod transform :let-attrs [[_ bindings] element orig-element]
+(defmethod transform :let-attrs [[_ bindings] element orig-element _options]
   (let [[_ attrs & _] (normalize orig-element)]
     `(let [~bindings ~attrs]
-       ~element)))
+       ~(hiccup element))))
 
-(defmethod transform :for [[_ {:keys [item items index key transforms]}] element _]
+(defmethod transform :for [[_ {:keys [item items index key transforms]}] element _ _options]
   (let [idx-sym (or index (gensym "index"))
         item-sym (or item (symbol (str *ns* "item")))]
     `(doall
       (map-indexed
        (fn [~idx-sym ~item-sym]
          (with-meta
-           ~element
+           ~(hiccup element)
            {:key ~(or key idx-sym)}))
        ~items))))
 
-(defmethod transform :replace [[_ & forms] _ _]
+(defmethod transform :replace [[_ & forms] _ _ _options]
   `(do ~@forms))
 
 (def handlebar-pattern #"\{\{[^}]+\}\}")
@@ -91,7 +112,7 @@
          (translate translation-expander-fn rest-of-text
                     (conj acc (translation-expander-fn key))))))))
 
-(defmethod transform :translate [[_ translation-expander-form] element _]
+(defmethod transform :translate [[_ translation-expander-form] element _ _options]
   (let [tr (eval translation-expander-form)]
     (assert (fn? tr)
             "Translate requires a compile time form that yields a function.")
@@ -102,22 +123,22 @@
          form))
      element)))
 
-(defmethod transform :prepend-children [[_ & forms] element _]
+(defmethod transform :prepend-children [[_ & forms] element _ _options]
   (let [[tag attrs & children] (normalize element)]
     `[~tag ~@(when attrs [attrs]) ~@forms ~@children]))
 
-(defmethod transform :append-children [[_ & forms] element _]
+(defmethod transform :append-children [[_ & forms] element _ _options]
   (let [[tag attrs & children] (normalize element)]
     `[~tag ~@(when attrs [attrs]) ~@children ~@forms]))
 
-(defmethod transform :replace-children [[_ & forms] element _]
+(defmethod transform :replace-children [[_ & forms] element _ _options]
   (let [tag (first element)
         attrs (when (map? (second element))
                 (second element))]
     `[~tag ~@(when attrs [attrs])
       ~@forms]))
 
-(defmethod transform :set-attributes [[_ & forms] element _]
+(defmethod transform :set-attributes [[_ & forms] element _ _options]
   (let [[tag attrs & children] (normalize element)]
     `[~tag (merge ~attrs
                   (do ~@forms)) ~@children]))
@@ -179,13 +200,14 @@
 
 (def ordered-transformation-types (sort-by transformation-order transformation-type))
 
-(defn- apply-transformations [transformations element]
+(defn- apply-transformations [options transformations element]
   (let [type (some #(when (contains? transformations %) %) ordered-transformation-types)]
     (if-not type
       element
       (transform [type (transformations type)]
-                 (apply-transformations (dissoc transformations type) element)
-                 element))))
+                 (apply-transformations options (dissoc transformations type) element)
+                 element
+                 (get options type)))))
 
 (defn- conformed-rule
   "Given a clojure.spec conformed rule, return [rule transforms-map]"
@@ -193,19 +215,20 @@
   [(second rule)
    transforms-map])
 
-(defn- transform-element [path all-transformations transformations element]
+(defn- transform-element [options path all-transformations transformations element]
   (let [[tag attrs & children] (normalize element)
         new-element [tag]
         new-element (if (empty? attrs)
                       new-element
                       (conj new-element attrs))]
     (apply-transformations
+     options
      transformations
      (into new-element
-           (map #(walk path all-transformations %))
+           (map #(walk options path all-transformations %))
            children))))
 
-(defn- walk [path transformations element]
+(defn- walk [options path transformations element]
   (if (vector? element)
     (let [tag (first element)
           path (conj path tag)]
@@ -214,7 +237,7 @@
                                         xf))
                                     transformations)]
         ;; Transformation found at this path, run it
-        (transform-element path
+        (transform-element options path
                            (remove (comp #(= % transformation) second) transformations)
                            transformation element)
 
@@ -228,18 +251,32 @@
                             (conj element-out attrs)
                             element-out)]
           (into element-out
-                (map (partial walk path transformations))
+                (map (partial walk options path transformations))
                 children))))
     element))
 
-(defmacro define-html-template
-  "Define HTML template component with the given name and arguments.
-  Expands to a function with the specified name and arguments that returns
+(defn set-global-options!
+  "Set global options to use for HTML template, see define-html-template
+  for documentation on supported option keys."
+  [options]
+  {:pre [(map? options)]}
+  (reset! global-options options))
+
+(defmacro html-template
+  "Define an anonymous HTML template function with the given arguments.
+  Expands to a function with the  name and arguments that returns
   the HTML as hiccup.
 
   Options map supports to following keys:
   :file        a file (in the classpath) to load HTML from
   :selector    a CSS selector string to take as the root element of the component
+  :wrap-hiccup a form to wrap hiccup output at all levels including
+               toplevel function body.
+               Replaces % with the generated hiccup,
+               for example: (my.html/render %)
+
+  Options can also be given by calling set-global-options!.
+
 
   Selectors and transformations are an alternating list of selectors and transformation
   maps.
@@ -260,19 +297,30 @@
   :let-attrs          Bind element attributes at compile time
   "
   [& args]
-
-  (let [{:keys [name args options transforms] :as conformed}
-        (s/conform ::spec/define-html-template args)
+  (let [{:keys [args options transforms] :as conformed}
+        (s/conform ::spec/html-template args)
         _ (when (= ::s/invalid conformed)
             (throw (ex-info (s/explain-str ::spec/define-html-template args)
                             (s/explain-data ::spec/define-html-template conformed))))
-        {:keys [file selector]} options
+        options (merge @global-options options)
+        {:keys [file selector wrap-hiccup]} options
         doc (parse file)
         element-node (if selector
                        (.selectFirst doc selector)
-                       (.root doc))]
+                       (.root doc))
+        fn-name (gensym "html-template")]
     (assert element-node "Can't find component element, check CSS selector.")
-    `(defn ~name [~@args]
-       ~(walk []
-              (map conformed-rule transforms)
-              (node->hiccup element-node)))))
+    (binding [*wrap-hiccup-form* (:wrap-hiccup options)]
+      `(fn ~fn-name [~@args]
+         ~(hiccup (walk options []
+                        (map conformed-rule transforms)
+                        (node->hiccup element-node)))))))
+
+(defmacro define-html-template
+  "Define HTML template component with the given name and arguments.
+  See html-template for options.
+
+  Same as html-template but the first argument is the symbol name."
+  [& args]
+  (let [{:keys [name]} (s/conform ::spec/define-html-template args)]
+    `(def ~name (html-template ~@(rest args)))))

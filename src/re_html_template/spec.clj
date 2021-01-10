@@ -29,6 +29,11 @@
 
 (s/def ::args (s/and (s/coll-of symbol?) vector?))
 
+(s/def ::html-template
+  (s/cat :args ::args
+         :options ::options
+         :transforms ::transforms))
+
 (s/def ::define-html-template
   (s/cat :name symbol?
          :args ::args

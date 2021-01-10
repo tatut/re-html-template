@@ -1,5 +1,5 @@
 (ns re-html-template.core-test
-  (:require [re-html-template.core :refer [define-html-template]]
+  (:require [re-html-template.core :refer [html-template define-html-template]]
             [clojure.test :refer [deftest is testing]]
             [clojure.core.match :refer [match]]))
 
@@ -52,3 +52,9 @@
                [:html
                 [:head]
                 [:body " Hello World! " _]] true))))
+
+(deftest wrap-hiccup
+  (let [tpl (html-template []
+                           {:file "test.html" :selector ".links"
+                            :wrap-hiccup (first %)})]
+    (is (= (tpl) :div.links))))
