@@ -139,9 +139,17 @@
       ~@forms]))
 
 (defmethod transform :set-attributes [[_ & forms] element _ _options]
-  (let [[tag attrs & children] (normalize element)]
-    `[~tag (merge ~attrs
-                  (do ~@forms)) ~@children]))
+  (let [[tag attrs & children] (normalize element)
+        attrs (if (and (map? attrs)
+                       (= 1 (count forms))
+                       (map? (first forms)))
+                ;; Both are literal maps, merge them as is
+                (merge attrs (first forms))
+
+                ;; Some code that yields a map, output code for merge
+                `(merge ~attrs
+                        (do ~@forms)))]
+    `[~tag ~attrs ~@children]))
 
 (defn- html-tag
   "Get the HTML tag name of the hiccup tag keyword"
