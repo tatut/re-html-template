@@ -322,5 +322,9 @@
 
   Same as html-template but the first argument is the symbol name."
   [& args]
-  (let [{:keys [name]} (s/conform ::spec/define-html-template args)]
+  (let [{:keys [name] :as conformed} (s/conform ::spec/define-html-template args)]
+    (when (= conformed :clojure.spec.alpha/invalid)
+      (throw (ex-info (str "Invalid define-html-template call: "
+                           (s/explain-str ::spec/define-html-template args))
+                      (s/explain-data ::spec/define-html-template args))))
     `(def ~name (html-template ~@(rest args)))))
