@@ -72,8 +72,16 @@ but the code you use in transformations may still depend on the environment.
 ## Transformations
 
 Transformations bring user code to selected sections of the generated code.
-The rule part is either a keyword or a vector (keyword path) that matches the
+The rule part is either a single rule or vector of rules that matches the
 current document structure.
+
+A single rule can be a keyword that matches the tag (like `:div.foo`)
+or map that matches the attributes `{:data-id "foo"}`.
+
+If the rules is a vector, the tail of the path at the candidate element must
+match the vector of rules. For example if the current element is
+`html > div > ul > li` the rule `[:ul :li]` would match but `[:div :li]` would not.
+
 
 Transformations are always tried in order. The first rule that matches the current element
 is used and only one transformation will be done for a single element. Make sure your
