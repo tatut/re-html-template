@@ -1,6 +1,6 @@
 # re-html-template
 
-[![CircleCI](https://circleci.com/gh/tatut/re-html-template.svg?style=svg)](https://circleci.com/gh/tatut/re-html-template) [![Clojars Project](https://img.shields.io/clojars/v/re-html-template.svg)](https://clojars.org/re-html-template)
+[![CircleCI](https://circleci.com/gh/tatut/re-html-template.svg?style=svg)](https://circleci.com/gh/tatut/re-html-template)
 
 Re-html-template can create Reagent components (functions that return hiccup markup) from HTML
 templates at compile time.
@@ -8,6 +8,9 @@ templates at compile time.
 See the macros `html-template` and `define-html-template`.
 
 ## Changes
+
+### 2021-01-11
+- Remove project.clj (last clojars version is 20180504)
 
 ### 2021-01-10
 - Support attr maps as rules
