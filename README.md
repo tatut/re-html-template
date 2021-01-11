@@ -7,6 +7,16 @@ templates at compile time.
 
 See the macros `html-template` and `define-html-template`.
 
+## Changes
+
+### 2021-01-10
+- Support attr maps as rules
+- Support global options that are merged with options given at call site
+- New `html-template` that expands to an anonymous function and refactor
+  `define-html-template` to use that
+- Usage as deps.edn git dependency
+- `:wrap-hiccup` option to support different other approaches than returning hiccup
+
 ## Goals
 
 - Simple macro that outputs a function
