@@ -1,7 +1,5 @@
 # re-html-template
 
-[![CircleCI](https://circleci.com/gh/tatut/re-html-template.svg?style=svg)](https://circleci.com/gh/tatut/re-html-template)
-
 Re-html-template can create Reagent components (functions that return hiccup markup) from HTML
 templates at compile time.
 
