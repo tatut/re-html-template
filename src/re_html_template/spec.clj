@@ -11,7 +11,7 @@
         :rule-vector (s/and (s/coll-of ::rule) vector?)))
 
 (s/def ::transforms-map
-  (s/keys :opt-un [::replace ::when ::omit ::for
+  (s/keys :opt-un [::replace ::when ::omit ::for ::wrap
                    ::prepend-children ::append-children ::replace-children
                    ::set-attributes
 

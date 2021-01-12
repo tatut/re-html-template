@@ -7,6 +7,9 @@ See the macros `html-template` and `define-html-template`.
 
 ## Changes
 
+### 2021-01-12
+- Add :wrap transform support
+
 ### 2021-01-11
 - Remove project.clj (last clojars version is 20180504)
 

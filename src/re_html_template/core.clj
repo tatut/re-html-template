@@ -16,6 +16,9 @@
     ;; Remove element
     :when :omit
 
+    ;; wrap element with arbitrary form
+    :wrap
+
     ;; Loop
     :for
 
@@ -69,6 +72,14 @@
 (defmethod transform :when [[_ & forms] element _ _]
   `(when (do ~@forms)
      ~(hiccup element)))
+
+(defmethod transform :wrap [[_ form] element _orig-element _options]
+  (walk/prewalk
+   (fn [x]
+     (if (= x '%)
+       element
+       x))
+   form))
 
 (defmethod transform :let-attrs [[_ bindings] element orig-element _options]
   (let [[_ attrs & _] (normalize orig-element)]
@@ -221,15 +232,16 @@
     :else
     (matching-element? rule (last path))))
 
-(def wrapping-transformation? #{:when :for :let-attrs})
+(def wrapping-transformation? #{:when :for :let-attrs :wrap})
 (defn transformation-order [t]
   (case t
-    :let-attrs 0
-    :translate 1
-    :when 2
-    :for 3
-    :set-attributes 4
-    :replace-children 5
+    :wrap 0
+    :let-attrs 1
+    :translate 2
+    :when 3
+    :for 4
+    :set-attributes 5
+    :replace-children 6
     32))
 
 (def ordered-transformation-types (sort-by transformation-order transformation-type))

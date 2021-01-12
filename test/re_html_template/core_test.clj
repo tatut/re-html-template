@@ -58,3 +58,11 @@
                            {:file "test.html" :selector ".links"
                             :wrap-hiccup (first %)})]
     (is (= (tpl) :div.links))))
+
+(deftest wrap-transform
+  (let [tpl (html-template
+             []
+             {:file "test.html" :selector ".main-content"}
+             :.main-content {:wrap [::wrapped %]}
+             :.links {:replace [:span "FOO"]})]
+    (is (= (tpl) [::wrapped [:div.main-content [:span "FOO"]]]))))
