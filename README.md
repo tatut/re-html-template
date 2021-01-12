@@ -9,6 +9,7 @@ See the macros `html-template` and `define-html-template`.
 
 ### 2021-01-12
 - Add :wrap transform support
+- Add `html` macro that does just expansion without generating a function
 
 ### 2021-01-11
 - Remove project.clj (last clojars version is 20180504)

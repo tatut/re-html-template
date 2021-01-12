@@ -43,3 +43,7 @@
          :args ::args
          :options ::options
          :transforms ::transforms))
+
+(s/def ::html
+  (s/cat :options ::options
+         :transforms ::transforms))
