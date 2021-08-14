@@ -34,11 +34,13 @@
 
 (defmethod node->hiccup Element [element]
   (let [{:keys [id class] :as attrs} (attributes->map (.attributes element))
+        classes (when-not (str/blank? class)
+                  (remove str/blank? (str/split class #"\s+")))
         hiccup [(keyword (str (.tagName element)
                     (when-not (str/blank? id)
                       (str "#" id))
-                    (when-not (str/blank? class)
-                      (str "." (str/join "." (str/split class #"\s+"))))))]
+                    (when (seq classes)
+                      (str "." (str/join "." classes)))))]
         attrs (dissoc attrs :id :class)
         hiccup (if (empty? attrs)
                  hiccup

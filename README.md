@@ -7,6 +7,9 @@ See the macros `html-template` and `define-html-template`.
 
 ## Changes
 
+### 2021-08-14
+- Filter out empty classes
+
 ### 2021-01-12
 - Add :wrap transform support
 - Add `html` macro that does just expansion without generating a function
