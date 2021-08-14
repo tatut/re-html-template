@@ -262,7 +262,7 @@
 (def wrapping-transformation? #{:when :for :let-attrs :wrap})
 (defn transformation-order [t]
   (case t
-    :wrap 0
+    (:replace :wrap) 0
     :let-attrs 1
     :translate 2
     :when 3
@@ -299,7 +299,7 @@
                       (conj new-element attrs))]
     (apply-transformations
      options
-     transformations
+      (merge (:default-transformations options) transformations)
      (into new-element
            (map #(walk options path all-transformations %))
            children))))
@@ -331,7 +331,7 @@
     element))
 
 (defn set-global-options!
-  "Set global options to use for HTML template, see define-html-template
+  "Set global options to use for HTML template, see [[html]]
   for documentation on supported option keys."
   [options]
   {:pre [(map? options)]}
@@ -347,6 +347,9 @@
                toplevel function body.
                Replaces % with the generated hiccup,
                for example: (my.html/render %)
+  :default-transformations
+               default transformations done on all elements matched by any rule
+               (merged with transformations from the rule)
 
   Options can also be given by calling set-global-options!.
 
