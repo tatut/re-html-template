@@ -32,20 +32,37 @@
       (and (string? node)
            (str/blank? node))))
 
+;; Some CSS class names may have / in them and they won't be
+;; representable as keyword.
+(def ^:private illegal-kw-chars #{\/ \space})
+
+(defn valid-in-keyword? [class]
+  (every? (complement illegal-kw-chars) class))
+
 (defmethod node->hiccup Element [element]
   (let [{:keys [id class] :as attrs} (attributes->map (.attributes element))
         classes (when-not (str/blank? class)
-                  (remove str/blank? (str/split class #"\s+")))
-        hiccup [(keyword (str (.tagName element)
-                    (when-not (str/blank? id)
-                      (str "#" id))
-                    (when (seq classes)
-                      (str "." (str/join "." classes)))))]
-        attrs (dissoc attrs :id :class)
-        hiccup (if (empty? attrs)
-                 hiccup
-                 (conj hiccup attrs))]
-    (into hiccup
-          (comp (map node->hiccup)
-                (remove empty-node?))
-          (children element))))
+                  (remove str/blank? (str/split class #"\s+")))]
+    ;; Check if id and all classes can be represented in the
+    ;; clojure keyword.
+    (if (and (or (str/blank? id) (valid-in-keyword? id))
+             (every? valid-in-keyword? classes))
+      (let [hiccup [(keyword (str (.tagName element)
+                                  (when-not (str/blank? id)
+                                    (str "#" id))
+                                  (when (seq classes)
+                                    (str "." (str/join "." classes)))))]
+            attrs (dissoc attrs :id :class)
+            hiccup (if (empty? attrs)
+                     hiccup
+                     (conj hiccup attrs))]
+        (into hiccup
+              (comp (map node->hiccup)
+                    (remove empty-node?))
+              (children element)))
+
+      ;; Some class (or id) has illegal characters, output attribute map instead
+      (into [(keyword (.tagName element)) attrs]
+            (comp (map node->hiccup)
+                  (remove empty-node?))
+            (children element)))))

@@ -12,6 +12,7 @@ See the macros `html-template` and `define-html-template`.
 - Support custom matcher types (see `custom-match-element`)
 - Support :remove-attributes transform (eg. to remove data- attribute used for matching purpose from output)
 - Support :default-transformations that are run for all elements matched by any rule
+- Support illegal (in clj keyword) chars in classes (represented in :class attribute instead)
 
 ### 2021-01-12
 - Add :wrap transform support
