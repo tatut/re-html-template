@@ -10,6 +10,7 @@ See the macros `html-template` and `define-html-template`.
 ### 2021-08-14
 - Filter out empty classes
 - Support custom matcher types (see `custom-match-element`)
+- Support :remove-attributes transform (eg. to remove data- attribute used for matching purpose from output)
 
 ### 2021-01-12
 - Add :wrap transform support

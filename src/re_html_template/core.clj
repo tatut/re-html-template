@@ -24,7 +24,7 @@
 
     ;; Manipulate children
     :prepend-children :append-children :replace-children
-    :set-attributes
+    :set-attributes :remove-attributes
 
     ;; Translate text
     :translate
@@ -162,6 +162,13 @@
                         (do ~@forms)))]
     `[~tag ~attrs ~@children]))
 
+(defmethod transform :remove-attributes [[_ attrs-to-remove] element _ _options]
+  (let [[tag attrs & children] (normalize element)]
+    (when-not (map? attrs)
+      (ex-info ":remove-attributes can only work on static map of attributes"
+               {:attrs attrs}))
+    `[~tag ~(apply dissoc attrs attrs-to-remove) ~@children]))
+
 (defn- html-tag
   "Get the HTML tag name of the hiccup tag keyword"
   [tag]
@@ -260,8 +267,9 @@
     :translate 2
     :when 3
     :for 4
-    :set-attributes 5
-    :replace-children 6
+    :remove-attributes 5
+    :set-attributes 6
+    :replace-children 7
     32))
 
 (def ordered-transformation-types (sort-by transformation-order transformation-type))
