@@ -177,6 +177,28 @@
   [tag]
   (second (re-find #"\#([^.]+)" (name tag))))
 
+(defmulti custom-match-element
+  "Match by custom rule type, dispatches on rule type.
+  Implementations must return truthy value if rule matches
+  given element."
+  (fn [rule _candidate-element] (type rule)))
+
+(defmethod custom-match-element :default
+  [rule candidate-element]
+  (throw
+   (ex-info "Unsupported matching rule, expected tag keyword, attr map or supported custom type."
+            {:rule rule
+             :candidate-element candidate-element
+             :custom-match-element-methods (methods custom-match-element)})))
+
+(s/def ::supported-custom-type
+  (fn [val]
+    (println "val " val " supported? "
+             (contains? (into #{} (keys (methods custom-match-element)))
+                        (type val)))
+    (contains? (into #{} (keys (methods custom-match-element)))
+                        (type val))))
+
 (defn- matching-element?
   "Check if candidate element matches the given rule.
 
@@ -213,9 +235,7 @@
               rule))
 
     :else
-    (throw (ex-info "Unsupported matching rule, expected tag keyword or attr map"
-                    {:rule rule
-                     :candidate-element candidate-element}))))
+    (custom-match-element rule candidate-element)))
 
 (defn- match?
   "Check if the given rule matches the current path"

@@ -4,7 +4,8 @@
 
 (s/def ::rule
   (s/or :tag-rule keyword?
-        :attrs-rule (s/and map? #(every? keyword? (keys %)))))
+        :attrs-rule (s/and map? #(every? keyword? (keys %)))
+        :custom-rule :re-html-template.core/supported-custom-type))
 
 (s/def ::rules
   (s/or :single-rule ::rule

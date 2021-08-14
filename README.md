@@ -9,6 +9,7 @@ See the macros `html-template` and `define-html-template`.
 
 ### 2021-08-14
 - Filter out empty classes
+- Support custom matcher types (see `custom-match-element`)
 
 ### 2021-01-12
 - Add :wrap transform support
