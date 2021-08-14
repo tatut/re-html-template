@@ -200,9 +200,6 @@
 
 (s/def ::supported-custom-type
   (fn [val]
-    (println "val " val " supported? "
-             (contains? (into #{} (keys (methods custom-match-element)))
-                        (type val)))
     (contains? (into #{} (keys (methods custom-match-element)))
                         (type val))))
 
