@@ -224,13 +224,21 @@
     (keyword? rule)
     (let [rule-tag rule
           candidate-tag (first candidate-element)
+          candidate-attrs (when (map? (second candidate-element))
+                            (second candidate-element))
           rule-id (id rule-tag)
-          rule-html-tag (html-tag rule-tag)]
+          rule-html-tag (html-tag rule-tag)
+
+          candidate-id (or (id candidate-tag)
+                           (:id candidate-attrs))
+          candidate-classes (into (classes candidate-tag)
+                                  (some-> candidate-attrs :class
+                                          (str/split #"\s+")))]
       (and (or (nil? rule-id)
-               (= rule-id (id candidate-tag)))
+               (= rule-id candidate-id))
            (or (nil? rule-html-tag)
                (= rule-html-tag (html-tag candidate-tag)))
-           (every? (classes candidate-tag)
+           (every? candidate-classes
                    (classes rule-tag))))
 
     ;; Attributes rules
