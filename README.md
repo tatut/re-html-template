@@ -121,6 +121,7 @@ The supported transformations are  described here.
 | `:append-children` | Add children after the other children |
 | `:replace-children` | Replace children with the value (user code) |
 | `:set-attributes` | Merge attributes from user code |
+| `:remove-attributes` | Remove static attributes. Useful for removing data- attribute used for matching from the output. |
 
 ### Looping with `:for`
 
