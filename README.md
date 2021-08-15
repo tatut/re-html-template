@@ -7,6 +7,9 @@ See the macros `html-template` and `define-html-template`.
 
 ## Changes
 
+### 2021-08-15
+- Support reusable transforms via macros
+
 ### 2021-08-14
 - Filter out empty classes
 - Support custom matcher types (see `custom-match-element`)

@@ -342,6 +342,28 @@
   {:pre [(map? options)]}
   (reset! global-options options))
 
+(defn- macroexpand-throw [form]
+  (try
+    (macroexpand-1 form)
+    (catch Throwable t
+      (throw (ex-info "Exception trying to evaluate rules"
+                      {:form form
+                       :thrown t})))))
+
+(defn- expand-transforms [transforms]
+  (mapcat
+   (fn [[type val]]
+     (case type
+       :rule-and-transforms [val]
+       :seq (let [evaluated (macroexpand-throw val)
+                  tfs (s/conform ::spec/transforms evaluated)]
+              (if (= ::s/invalid tfs)
+                (throw (ex-info "Evaluated form result didn't conform to transforms"
+                                {:result evaluated
+                                 :explain (s/explain-data ::spec/transforms evaluated)}))
+                (expand-transforms tfs)))))
+   transforms))
+
 (defmacro html
   "Expands to code that yields the HTML as hiccup.
 
@@ -366,6 +388,11 @@
   A transformation is a map of supported transformation types to forms. The forms are spliced to the
   function body and may refer to the arguments.
 
+  If a sequence is encountered as a selector, it is macroexpanded at compile time
+  and must produce a list of alternating selectors and transformations.
+  The generated list is spliced in as if it were written directly.
+  This allows creating reusable and parameterized transformations.
+
   Supported transformation types are:
   :when               Only show element if form yields truthy value
   :omit               Unconditionally remove this element
@@ -384,6 +411,9 @@
         _ (when (= ::s/invalid conformed)
             (throw (ex-info (s/explain-str ::spec/html args)
                             (s/explain-data ::spec/html conformed))))
+        transforms (expand-transforms transforms)
+        ;; transforms pitaa olla lista {:rules [...] :transforms-map {...}}
+        _ (def *tfs transforms)
         options (merge @global-options options)
         {:keys [file selector wrap-hiccup]} options
         doc (parse file)

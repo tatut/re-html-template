@@ -22,8 +22,10 @@
 
 (s/def ::transforms
   (s/*
-   (s/cat :rules ::rules
-          :transforms-map ::transforms-map)))
+   (s/alt
+    :seq seq?
+    :rule-and-transforms (s/cat :rules ::rules
+                                :transforms-map ::transforms-map))))
 
 (s/def ::file string?)
 (s/def ::selector string?)
