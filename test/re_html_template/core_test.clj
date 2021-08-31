@@ -77,9 +77,15 @@
                       {:file "reload.html"
                        :selector "body"
                        :reload? true}
-                      :body {:append-children x})))]
-    (is (= (tpl 42) [:body {} "INITIAL" 42]))
-    (Thread/sleep 100)
+                      :body {:append-children x})))
+        reloaded? (promise)]
+    (add-watch re-html-template.core/reloads :reload-watcher
+               (fn [& _]
+                 (deliver reloaded? true)))
+    (is (= [:body {} "INITIAL" 42]
+           (tpl 42)))
     (spit "reload.html" "<html><body>RELOADED</body></html>")
-    (Thread/sleep 5000) ; wait for reload to happen in the background
-    (is (= (tpl 666) [:body {} "RELOADED" 666]))))
+    (is (deref reloaded? 5000 false)
+        "reload didn't happen within 5 seconds")
+    (is (= [:body {} "RELOADED" 666]
+           (tpl 666)))))
