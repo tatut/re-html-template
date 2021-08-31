@@ -1,5 +1,5 @@
 (ns re-html-template.core-test
-  (:require [re-html-template.core :refer [html-template define-html-template]]
+  (:require [re-html-template.core :refer [html-template html define-html-template]]
             [clojure.test :refer [deftest is testing]]
             [clojure.core.match :refer [match]]))
 
@@ -66,3 +66,16 @@
              :.main-content {:wrap [::wrapped %]}
              :.links {:replace [:span "FOO"]})]
     (is (= (tpl) [::wrapped [:div.main-content [:span "FOO"]]]))))
+
+(deftest reload-test
+  (spit "reload.html" "<html><body>INITIAL</body></html>")
+  (let [tpl (eval '(html-template
+                    [x]
+                    {:file "reload.html"
+                     :selector "body"
+                     :reload? true}
+                    :body {:append-children x}))]
+    (is (= (tpl 42) [:body {} "INITIAL" 42]))
+    (spit "reload.html" "<html><body>RELOADED</body></html>")
+    (Thread/sleep 1500) ; wait for reload to happen in the background
+    (is (= (tpl 666) [:body {} "RELOADED" 666]))))

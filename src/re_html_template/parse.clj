@@ -8,8 +8,19 @@
 (defn- children [node]
   (.childNodes node))
 
-(defn parse [file]
-  (Jsoup/parse (slurp (io/resource file))))
+(defn template-last-modified [template-file-name]
+  (if-let [url (io/resource template-file-name)]
+    (.lastModified (java.io.File. (.toURI url)))
+    (.lastModified (io/file template-file-name))))
+
+(defn parse [template-file-name]
+  (let [classpath-resource (io/resource template-file-name)
+        file (when-not classpath-resource
+               (io/file template-file-name))]
+    (if-not (or classpath-resource (.canRead file))
+      (throw (ex-info "No such template. Can't open specified template as classpath resource or file."
+                      {:template-file-name template-file-name}))
+      (Jsoup/parse (slurp (or classpath-resource file))))))
 
 (defn- attributes->map [attributes]
   (into {}

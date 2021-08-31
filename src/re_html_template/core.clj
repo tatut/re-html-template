@@ -1,7 +1,7 @@
 (ns re-html-template.core
   "Macro that generates Reagent components from HTML files."
   (:require [clojure.string :as str]
-            [re-html-template.parse :refer [parse node->hiccup]]
+            [re-html-template.parse :refer [parse node->hiccup] :as parse]
             [clojure.spec.alpha :as s]
             [re-html-template.spec :as spec]
             [clojure.walk :as walk]))
@@ -364,6 +364,78 @@
                 (expand-transforms tfs)))))
    transforms))
 
+;; Contains reloads for
+;; {file {:last-modified 1232321412
+;;        :templates {reload-key
+;;                   {;; current template fn
+;;                    :template-fn (fn...)
+;;                    :ns #namespace[...] ; ns to eval in
+;;                    ;; form to evaluate to get new template fn
+;;                    :form (fn [foo bar] (html {:file ..}))}}}
+(defonce reloads (atom {}))
+
+(defn- reload! [reloads]
+  (into {}
+        (map (fn [[file-name {:keys [last-modified templates] :as file}]]
+               (let [tpl-last-mod (parse/template-last-modified file-name)]
+                 (if (> tpl-last-mod last-modified)
+                   (do
+                     (println "Reloading templates:" file-name)
+                     [file-name
+                      {:last-modified tpl-last-mod
+                       :templates
+                       (into {}
+                             (map (fn [[key {:keys [form ns error?] :as entry}]]
+                                    (try
+                                      [key {:form form
+                                            :template-fn (binding [*ns* ns]
+                                                           (eval form))
+                                            :error? false}]
+                                      (catch Throwable t
+                                        (when-not error?
+                                          ;; Only show error? once in a row
+                                          (println "Error evaluating template from file " file-name ", source: \n" key "\nexception: " t))
+                                        [key (assoc entry :error? true)]))))
+                             templates)}])
+                   [file-name file]))))
+        reloads))
+
+(def ^:private
+  reloader-thread
+  (delay
+    (.start
+     (java.lang.Thread.
+      (fn []
+        (while true
+          (try
+            (Thread/sleep 1000)
+            (swap! reloads reload!)
+            (catch Throwable t
+              (println "Error in template reload thread:" (.getMessage t))))))))))
+
+(defn- wrap-reload [options environment form compiled-form]
+  (if-not (:reload? options)
+    compiled-form
+    (let [key (str form)
+          file (:file options)
+          args (keys environment)
+          initial-fn-form `(fn [~@args]
+                             ~compiled-form)
+          fn-form `(fn [~@args]
+                     ~(let [[html opts & forms] form]
+                        (concat (list html (assoc opts :reload? false))
+                                forms)))]
+      (swap! reloads update file
+             (fn [{t :templates}]
+               {:last-modified (System/currentTimeMillis)
+                :templates (assoc t key
+                                  {:template-fn (eval initial-fn-form)
+                                   :ns *ns*
+                                   :form fn-form})}))
+      @reloader-thread
+      `((get-in @reloads [~file :templates ~key :template-fn])
+        ~@args))))
+
 (defmacro html
   "Expands to code that yields the HTML as hiccup.
 
@@ -377,6 +449,9 @@
   :default-transformations
                default transformations done on all elements matched by any rule
                (merged with transformations from the rule)
+  :reload?     watch template :file for modifications and automatically
+               reload re-evaluate the template (experimental)
+               should only be used in development mode
 
   Options can also be given by calling set-global-options!.
 
@@ -421,10 +496,12 @@
                        (.selectFirst doc selector)
                        (.root doc))]
     (assert element-node "Can't find component element, check CSS selector.")
-    (binding [*wrap-hiccup-form* wrap-hiccup]
-      (hiccup (walk options []
-                    (map conformed-rule transforms)
-                    (node->hiccup element-node))))))
+    (wrap-reload
+     options &env &form
+     (binding [*wrap-hiccup-form* wrap-hiccup]
+       (hiccup (walk options []
+                     (map conformed-rule transforms)
+                     (node->hiccup element-node)))))))
 
 (defmacro html-template
   "Define an anonymous HTML template function with the given arguments.
