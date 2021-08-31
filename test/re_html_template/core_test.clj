@@ -67,14 +67,17 @@
              :.links {:replace [:span "FOO"]})]
     (is (= (tpl) [::wrapped [:div.main-content [:span "FOO"]]]))))
 
+(def this-ns *ns*) ; kaocha does something weird with ns, bind it later
+
 (deftest reload-test
   (spit "reload.html" "<html><body>INITIAL</body></html>")
-  (let [tpl (eval '(html-template
-                    [x]
-                    {:file "reload.html"
-                     :selector "body"
-                     :reload? true}
-                    :body {:append-children x}))]
+  (let [tpl (binding [*ns* this-ns]
+              (eval '(html-template
+                      [x]
+                      {:file "reload.html"
+                       :selector "body"
+                       :reload? true}
+                      :body {:append-children x})))]
     (is (= (tpl 42) [:body {} "INITIAL" 42]))
     (spit "reload.html" "<html><body>RELOADED</body></html>")
     (Thread/sleep 1500) ; wait for reload to happen in the background
