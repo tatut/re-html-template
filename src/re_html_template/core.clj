@@ -342,6 +342,15 @@
   {:pre [(map? options)]}
   (reset! global-options options))
 
+(defn merge-global-options!
+  "Merge global options, useful for settings from REPL.
+  See [[html]] for documentation on supported option keys.
+
+  Example: Reload all templates in dev, evaluate:
+  (merge-global-options! {:reload? true})"
+  [options]
+  (swap! global-options merge options))
+
 (defn- macroexpand-throw [form]
   (try
     (macroexpand-1 form)
@@ -414,8 +423,10 @@
               (println "Error in template reload thread:" (.getMessage t))))))))))
 
 (defn- wrap-reload [options environment form compiled-form]
-  (if-not (:reload? options)
-    compiled-form
+  (if (and (:reload? options)
+           ;; ::reloading? is set when html is called within reload
+           ;; to prevent recursive reloading
+           (not (::reloading? options)))
     (let [key (str form)
           file (:file options)
           args (keys environment)
@@ -423,7 +434,7 @@
                              ~compiled-form)
           fn-form `(fn [~@args]
                      ~(let [[html opts & forms] form]
-                        (concat (list html (assoc opts :reload? false))
+                        (concat (list html (assoc opts ::reloading? true))
                                 forms)))]
       (swap! reloads update file
              (fn [{t :templates}]
@@ -434,7 +445,8 @@
                                    :form fn-form})}))
       @reloader-thread
       `((get-in @reloads [~file :templates ~key :template-fn])
-        ~@args))))
+        ~@args))
+    compiled-form))
 
 (defmacro html
   "Expands to code that yields the HTML as hiccup.
