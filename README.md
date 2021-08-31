@@ -7,6 +7,10 @@ See the macros `html-template` and `define-html-template`.
 
 ## Changes
 
+### 2021-08-31
+- Support (experimental) for automatic reloading (and re-eval of code) when template file changes (`:reload? true`)
+- Support merging global options as REPL convenience with `merge-global-options!`
+
 ### 2021-08-15
 - Support reusable transforms via macros
 
