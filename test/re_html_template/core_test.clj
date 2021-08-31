@@ -80,5 +80,5 @@
                       :body {:append-children x})))]
     (is (= (tpl 42) [:body {} "INITIAL" 42]))
     (spit "reload.html" "<html><body>RELOADED</body></html>")
-    (Thread/sleep 1500) ; wait for reload to happen in the background
+    (Thread/sleep 2500) ; wait for reload to happen in the background
     (is (= (tpl 666) [:body {} "RELOADED" 666]))))
