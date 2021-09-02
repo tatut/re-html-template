@@ -93,7 +93,8 @@
       (map-indexed
        (fn [~idx-sym ~item-sym]
          (with-meta
-           ~(hiccup element)
+           ;; Wrap in or to prevent NPE if hiccup wrapper returns nil
+           (or ~(hiccup element) {})
            {:key ~(or key idx-sym)}))
        ~items))))
 
