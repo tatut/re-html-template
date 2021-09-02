@@ -431,8 +431,7 @@
            ;; ::reloading? is set when html is called within reload
            ;; to prevent recursive reloading
            (not (::reloading? options)))
-    (let [_ (println "WRAPPIJNG RELOAD " options)
-          key (str form)
+    (let [key (str form)
           file (:file options)
           args (keys environment)
           initial-fn-form `(fn [~@args]
