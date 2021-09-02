@@ -61,7 +61,9 @@
       (map-indexed
        (fn [~idx-sym ~item-sym]
          (with-meta
-           ~element
+           ;; wrap element in or so with-meta doesn't throw NPE
+           ;; if element is wrapped in some code that
+           (or ~element {})
            {:key ~(or key idx-sym)}))
        ~items))))
 
