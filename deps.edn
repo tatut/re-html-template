@@ -1,3 +1,9 @@
 {:paths ["src"]
  :deps {org.jsoup/jsoup {:mvn/version "1.11.3"}
-        org.clojure/data.xml {:mvn/version "0.0.8"}}}
+        org.clojure/data.xml {:mvn/version "0.0.8"}}
+ :aliases {:dev {:extra-deps {org.clojure/core.match {:mvn/version "1.0.0"}}
+                 :extra-paths ["test"]}
+           :test {:extra-deps {org.clojure/core.match {:mvn/version "1.0.0"}
+                               lambdaisland/kaocha {:mvn/version "1.0-612"}}
+                  :extra-paths ["test"]
+                  :main-opts ["-m" "kaocha.runner"]}}}

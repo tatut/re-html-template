@@ -1,11 +1,40 @@
 # re-html-template
 
-[![CircleCI](https://circleci.com/gh/tatut/re-html-template.svg?style=svg)](https://circleci.com/gh/tatut/re-html-template) [![Clojars Project](https://img.shields.io/clojars/v/re-html-template.svg)](https://clojars.org/re-html-template)
-
 Re-html-template can create Reagent components (functions that return hiccup markup) from HTML
 templates at compile time.
 
-See the macro `define-html-template`.
+See the macros `html-template` and `define-html-template`.
+
+## Changes
+
+### 2021-08-31
+- Support (experimental) for automatic reloading (and re-eval of code) when template file changes (`:reload? true`)
+- Support merging global options as REPL convenience with `merge-global-options!`
+
+### 2021-08-15
+- Support reusable transforms via macros
+
+### 2021-08-14
+- Filter out empty classes
+- Support custom matcher types (see `custom-match-element`)
+- Support :remove-attributes transform (eg. to remove data- attribute used for matching purpose from output)
+- Support :default-transformations that are run for all elements matched by any rule
+- Support illegal (in clj keyword) chars in classes (represented in :class attribute instead)
+
+### 2021-01-12
+- Add :wrap transform support
+- Add `html` macro that does just expansion without generating a function
+
+### 2021-01-11
+- Remove project.clj (last clojars version is 20180504)
+
+### 2021-01-10
+- Support attr maps as rules
+- Support global options that are merged with options given at call site
+- New `html-template` that expands to an anonymous function and refactor
+  `define-html-template` to use that
+- Usage as deps.edn git dependency
+- `:wrap-hiccup` option to support different other approaches than returning hiccup
 
 ## Goals
 
@@ -72,8 +101,16 @@ but the code you use in transformations may still depend on the environment.
 ## Transformations
 
 Transformations bring user code to selected sections of the generated code.
-The rule part is either a keyword or a vector (keyword path) that matches the
+The rule part is either a single rule or vector of rules that matches the
 current document structure.
+
+A single rule can be a keyword that matches the tag (like `:div.foo`)
+or map that matches the attributes `{:data-id "foo"}`.
+
+If the rules is a vector, the tail of the path at the candidate element must
+match the vector of rules. For example if the current element is
+`html > div > ul > li` the rule `[:ul :li]` would match but `[:div :li]` would not.
+
 
 Transformations are always tried in order. The first rule that matches the current element
 is used and only one transformation will be done for a single element. Make sure your
@@ -93,6 +130,7 @@ The supported transformations are  described here.
 | `:append-children` | Add children after the other children |
 | `:replace-children` | Replace children with the value (user code) |
 | `:set-attributes` | Merge attributes from user code |
+| `:remove-attributes` | Remove static attributes. Useful for removing data- attribute used for matching from the output. |
 
 ### Looping with `:for`
 
