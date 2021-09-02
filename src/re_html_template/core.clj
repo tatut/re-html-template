@@ -390,22 +390,25 @@
                (let [tpl-last-mod (parse/template-last-modified file-name)]
                  (if (> tpl-last-mod last-modified)
                    (do
-                     (println "Reloading templates:" file-name)
+                     (println "\nReloading templates:" file-name)
                      [file-name
                       {:last-modified tpl-last-mod
                        :templates
                        (into {}
                              (map (fn [[key {:keys [form ns error?] :as entry}]]
                                     (try
-                                      [key {:form form
-                                            :template-fn (binding [*ns* ns]
-                                                           (eval form))
-                                            :error? false}]
+                                      [key
+                                       (merge entry
+                                              {:template-fn (binding [*ns* ns]
+                                                              (eval form))
+                                               :error? false})]
                                       (catch Throwable t
                                         (when-not error?
                                           ;; Only show error? once in a row
                                           (println "Error evaluating template from file " file-name ", source: \n" key "\nexception: " t))
-                                        [key (assoc entry :error? true)]))))
+                                        [key (assoc entry
+                                                    :error? true
+                                                    :exception t)]))))
                              templates)}])
                    [file-name file]))))
         reloads))
@@ -428,7 +431,8 @@
            ;; ::reloading? is set when html is called within reload
            ;; to prevent recursive reloading
            (not (::reloading? options)))
-    (let [key (str form)
+    (let [_ (println "WRAPPIJNG RELOAD " options)
+          key (str form)
           file (:file options)
           args (keys environment)
           initial-fn-form `(fn [~@args]
