@@ -57,16 +57,11 @@
   (is
    (=
     '[:div.daytype
-      {:tooltip
-       (clojure.core/str
-        "works "
-        (clojure.string/upper-case "here")
-        " as well")}
-      [:<> " It is a " (clojure.string/upper-case "daytype") " day! "]]
-    (macroexpand-1
-     '(html {:file "translate2.html" :selector "div.daytype"
-             :translate (fn [key]
-                          `(str/upper-case ~key))})))))
+      {:tooltip "works HERE as well"}
+      [:<> " It is a " "DAYTYPE" " day! "]]
+    (html {:file "translate2.html" :selector "div.daytype"
+           :translate (fn [key]
+                        `(str/upper-case ~key))}))))
 
 
 (deftest wrap-hiccup
