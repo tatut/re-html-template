@@ -104,15 +104,17 @@
 (def handlebar-pattern #"\{\{[^}]+\}\}")
 
 (defn- translate
-  ([translation-expander-fn text-to-translate]
-   (translate translation-expander-fn text-to-translate []))
-  ([translation-expander-fn text-to-translate acc]
+  ([translation-expander-fn text-to-translate attr?]
+   (translate translation-expander-fn text-to-translate attr? []))
+  ([translation-expander-fn text-to-translate attr? acc]
    (let [idx (str/index-of text-to-translate "{{")]
      (if (nil? idx)
        ;; Nothing more to translate
        (if (seq acc)
-         `(str ~@acc ~text-to-translate)
-         ~text-to-translate)
+         (if attr?
+           `(str ~@acc ~text-to-translate)
+           `[:<> ~@acc ~text-to-translate])
+         text-to-translate)
 
        (let [end-idx (str/index-of text-to-translate "}}" (+ 2 idx))
              _ (assert end-idx (str "Closing translation braces not found, starting at " idx " in string: " text-to-translate))
@@ -121,19 +123,30 @@
                    (conj acc (subs text-to-translate 0 idx))
                    acc)
              rest-of-text (subs text-to-translate (+ end-idx 2))]
-         (translate translation-expander-fn rest-of-text
+         (translate translation-expander-fn rest-of-text attr?
                     (conj acc (translation-expander-fn key))))))))
+
+(defn- translate-element [translate-fn element]
+  (walk/prewalk
+   (fn [form]
+     (cond
+       (and (map-entry? form)
+            (string? (val form)))
+       [(key form) (translate translate-fn (val form) true)]
+
+
+       (string? form)
+       (translate translate-fn form false)
+
+       :else
+       form))
+     element))
 
 (defmethod transform :translate [[_ translation-expander-form] element _ _options]
   (let [tr (eval translation-expander-form)]
     (assert (fn? tr)
             "Translate requires a compile time form that yields a function.")
-    (walk/postwalk
-     (fn [form]
-       (if (string? form)
-         (translate tr form)
-         form))
-     element)))
+    (translate-element tr element)))
 
 (defmethod transform :prepend-children [[_ & forms] element _ _options]
   (let [[tag attrs & children] (normalize element)]
@@ -468,6 +481,10 @@
   :reload?     watch template :file for modifications and automatically
                reload re-evaluate the template (experimental)
                should only be used in development mode
+  :translate   translate {{key}} strings in text content
+               using the given function to generate the expansion
+               code
+
 
   Options can also be given by calling set-global-options!.
 
@@ -510,14 +527,19 @@
         doc (parse file)
         element-node (if selector
                        (.selectFirst doc selector)
-                       (.root doc))]
+                       (.root doc))
+        translate (if-let [tr (some-> options :translate eval)]
+                    (partial translate-element tr)
+                    identity)]
     (assert element-node "Can't find component element, check CSS selector.")
     (wrap-reload
      options &env &form
      (binding [*wrap-hiccup-form* wrap-hiccup]
-       (hiccup (walk options []
-                     (map conformed-rule transforms)
-                     (node->hiccup element-node)))))))
+       (hiccup
+        (translate
+         (walk options []
+               (map conformed-rule transforms)
+               (node->hiccup element-node))))))))
 
 (defmacro html-template
   "Define an anonymous HTML template function with the given arguments.

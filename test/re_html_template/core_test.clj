@@ -1,7 +1,8 @@
 (ns re-html-template.core-test
   (:require [re-html-template.core :refer [html-template html define-html-template]]
             [clojure.test :refer [deftest is testing]]
-            [clojure.core.match :refer [match]]))
+            [clojure.core.match :refer [match]]
+            [clojure.string :as str]))
 
 (defmacro eval-test-fn [file app-data & transforms]
   `(do
@@ -35,10 +36,11 @@
                                       "World"))}
 
                 :.daytype {:when (not= :awful app)})]
-    (is (match hiccup
-               [:html
-                [:head]
-                [:body " Hello World! " [:div.daytype " It is a good day! "]]] true)))
+    (is (= [:html
+            [:head]
+            [:body [:<> " Hello " "World" "! "]
+             [:div.daytype [:<> " It is a " "good" " day! "]]]]
+           hiccup)))
 
   (let [hiccup (eval-test-fn
                 "translate.html" :awful
@@ -48,10 +50,24 @@
                                       "World"))}
 
                 :.daytype {:when (not= :awful app)})]
-    (is (match hiccup
-               [:html
-                [:head]
-                [:body " Hello World! " _]] true))))
+    (is (= [:html [:head] [:body [:<> " Hello " "World" "! "] nil]]
+           hiccup))))
+
+(deftest translate-config
+  (is
+   (=
+    '[:div.daytype
+      {:tooltip
+       (clojure.core/str
+        "works "
+        (clojure.string/upper-case "here")
+        " as well")}
+      [:<> " It is a " (clojure.string/upper-case "daytype") " day! "]]
+    (macroexpand-1
+     '(html {:file "translate2.html" :selector "div.daytype"
+             :translate (fn [key]
+                          `(str/upper-case ~key))})))))
+
 
 (deftest wrap-hiccup
   (let [tpl (html-template []

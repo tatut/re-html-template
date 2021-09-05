@@ -7,6 +7,9 @@ See the macros `html-template` and `define-html-template`.
 
 ## Changes
 
+### 2021-09-05
+- Support :translate option to globally supply a translation form
+
 ### 2021-08-31
 - Support (experimental) for automatic reloading (and re-eval of code) when template file changes (`:reload? true`)
 - Support merging global options as REPL convenience with `merge-global-options!`
@@ -125,7 +128,6 @@ The supported transformations are  described here.
 | `:when` | Remove element if value (user code) is falsy |
 | `:omit` | Unconditionally remove this element |
 | `:replace` | Replace this element with user code |
-| `:translate` | Translate handlebar references (eg. `{{translation key}}`) in static text with compile time expansion |
 | `:prepend-children` | Add children before the other children |
 | `:append-children` | Add children after the other children |
 | `:replace-children` | Replace children with the value (user code) |
@@ -150,14 +152,14 @@ Keys supported by `:for` transformation:
 
 ### Translating static text
 
-The `:translate` transform is special in that it takes code that is evaluated at compile time.
-The specified code must yield a function that takes in a translation key (string) and returns
-the expansion to output. This makes it easy to integrate any existing translation function to HTML
-templates.
+The `:translate` option takes code that is evaluated at compile time.
+ The specified code must yield a function that takes in a translation key (string) and returns
+ the expansion to output. This makes it easy to integrate any existing translation function to HTML
+ templates.
 
 The translation is run last and will recursively transform all generated code. It will replace all
 strings with handlebar references with translation expansions.
 
 Example:
 The element `[:div "Hello, {{user}}!"]`  and translation function `(fn [key] (list 'translate key))`
-will output `[:div "Hello, " (translate "user") "!"]`.
+will output `[:div [:<> "Hello, " (translate "user") "!"]]`.
