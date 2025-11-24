@@ -7,6 +7,10 @@ See the macros `html-template` and `define-html-template`.
 
 ## Changes
 
+### 2025-11-24
+- Normalize element now moves `.class` or `#id` from tag keyword to attrs map
+- `define-html-template` throws on expansion if there are unused rule heads
+
 ### 2021-09-05
 - Support :translate option to globally supply a translation form
 
