@@ -337,11 +337,13 @@
            (map #(walk options path all-transformations %))
            children))))
 
-(defn- walk [options path transformations element]
+(defn- walk [{:keys [on-match] :as options} path transformations element]
   (if (vector? element)
     (let [path (conj path element)]
       (if-let [transformation (some (fn [[rule xf]]
                                       (when (match? rule path)
+                                        (when on-match
+                                          (on-match rule path))
                                         xf))
                                     transformations)]
         ;; Transformation found at this path, run it
@@ -534,9 +536,10 @@
             (throw (ex-info (s/explain-str ::spec/html args)
                             (s/explain-data ::spec/html conformed))))
         transforms (expand-transforms transforms)
-        ;; transforms pitaa olla lista {:rules [...] :transforms-map {...}}
-        _ (def *tfs transforms)
-        options (merge @global-options options)
+
+        used-rules (atom #{})
+        options (merge @global-options options
+                       {:on-match (fn [rule _] (swap! used-rules conj rule))})
         {:keys [file selector wrap-hiccup]} options
         doc (parse file)
         element-node (if selector
@@ -546,14 +549,22 @@
                     (partial translate-element tr)
                     identity)]
     (assert element-node "Can't find component element, check CSS selector.")
-    (wrap-reload
-     options &env &form
-     (binding [*wrap-hiccup-form* wrap-hiccup]
-       (hiccup
-        (translate
-         (walk options []
-               (map conformed-rule transforms)
-               (node->hiccup element-node))))))))
+    (binding [*wrap-hiccup-form* wrap-hiccup]
+      (let [conformed-rules (map conformed-rule transforms)
+            rule-heads (map first conformed-rules)
+            walked (walk options []
+                         conformed-rules
+                         (node->hiccup element-node))
+            unused-rules (remove @used-rules rule-heads)]
+        (when (seq unused-rules)
+          (throw (ex-info (str "There are unused rules!\n"
+                               (str/join "\n"
+                                         (map #(str "- " (pr-str %)) unused-rules)))
+                          {:unused unused-rules})))
+
+        (wrap-reload
+         options &env &form
+         (hiccup (translate walked)))))))
 
 (defmacro html-template
   "Define an anonymous HTML template function with the given arguments.
