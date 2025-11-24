@@ -53,16 +53,45 @@
 (defmulti transform (fn [transformation _element _orig-element _transform-options]
                       (first transformation)))
 
+(defn- tag-name
+  "Get the HTML tag name of the hiccup tag keyword"
+  [tag]
+  (second (re-find #"^([^.#]+)" (name tag))))
+
+(defn- tag-classes
+  "Get classes of hiccup tag keyword"
+  [tag]
+  (map second (re-seq #"\.([^.#]+)" (name tag))))
+
+(defn- tag-id
+  "Get ID of hiccup tag keyword"
+  [tag]
+  (second (re-find #"\#([^.]+)" (name tag))))
+
 (defn- normalize
   "Normalize element so that it is [:tag {...attrs...} ...children...].
   The input may or may not have attributes, normalize returns an empty
-  map in that case."
+  map in that case.
+
+  If the tag itself has classes or ids, those are removed and put into
+  the attrs map, so:
+  [:div#btn1.button.small \"bar\"]
+  becomes
+  [:div {:id \"btn1\" :class \"button small\"} \"bar\"]
+  "
   [elt]
   (let [tag (first elt)
-        attrs (when (map? (second elt))
-                (second elt))
-        children (drop (if attrs 2 1) elt)]
-    (into [tag (or attrs {})] children)))
+        id (tag-id tag)
+        classes (tag-classes tag)
+        has-attrs? (map? (second elt))
+        attrs (merge
+               (when id {:id id})
+               (when (seq classes)
+                 {:class (str/join " " classes)})
+               (when has-attrs?
+                 (second elt)))
+        children (drop (if has-attrs? 2 1) elt)]
+    (into [(keyword (tag-name tag)) (or attrs {})] children)))
 
 (declare walk)
 
@@ -183,21 +212,6 @@
                {:attrs attrs}))
     `[~tag ~(apply dissoc attrs attrs-to-remove) ~@children]))
 
-(defn- html-tag
-  "Get the HTML tag name of the hiccup tag keyword"
-  [tag]
-  (second (re-find #"^([^.#]+)" (name tag))))
-
-(defn- classes
-  "Get classes of hiccup tag keyword"
-  [tag]
-  (into #{} (map second (re-seq #"\.([^.#]+)" (name tag)))))
-
-(defn- id
-  "Get ID of hiccup tag keyword"
-  [tag]
-  (second (re-find #"\#([^.]+)" (name tag))))
-
 (defmulti custom-match-element
   "Match by custom rule type, dispatches on rule type.
   Implementations must return truthy value if rule matches
@@ -237,20 +251,20 @@
           candidate-tag (first candidate-element)
           candidate-attrs (when (map? (second candidate-element))
                             (second candidate-element))
-          rule-id (id rule-tag)
-          rule-html-tag (html-tag rule-tag)
+          rule-id (tag-id rule-tag)
+          rule-html-tag (tag-name rule-tag)
 
-          candidate-id (or (id candidate-tag)
+          candidate-id (or (tag-id candidate-tag)
                            (:id candidate-attrs))
-          candidate-classes (into (classes candidate-tag)
+          candidate-classes (into (set (tag-classes candidate-tag))
                                   (some-> candidate-attrs :class
                                           (str/split #"\s+")))]
       (and (or (nil? rule-id)
                (= rule-id candidate-id))
            (or (nil? rule-html-tag)
-               (= rule-html-tag (html-tag candidate-tag)))
+               (= rule-html-tag (tag-name candidate-tag)))
            (every? candidate-classes
-                   (classes rule-tag))))
+                   (set (tag-classes rule-tag)))))
 
     ;; Attributes rules
     (map? rule)
